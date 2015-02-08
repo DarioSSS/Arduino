@@ -1,0 +1,239 @@
+//http://majsterkowo.pl/forum/post18866.html?hilit=menu#p18866
+//https://github.com/SauleVire/Kolektorius_v2a/blob/master/meniu/meniu.ino
+ /* MOJE Przykładowe MENU: (w sumie 19 opcji w trzech poziomach - rodzic, dziecko, wnuk)
+    PLIK EDYCJA SZKIC NARZEDZIA POMOC
+    Nowy Kopiuj Kompiluj Temperatura
+    Zapisz Wklej Importuj Odczyt
+    Exit Zaznacz EEPROM Ustaw
+    GSM Wilgotnosc
+
+rodzice (poziom 0) : PLIK, EDYCJA, SZKIC, NARZEDZIA, POMOC
+dzieci  (poziom 1) : Nowy, Zapisz, Exit, Kopiuj, Wklej, Zaznacz, Kompiluj, Importuj, Temperatura, Wilgotnosc
+wnuki   (poziom 2) : EEPROM i GSM dla Importuj oraz Odczyt i Ustaw dla Temperatura
+*/ 
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+LiquidCrystal_I2C lcd(0x27, 20, 4);
+
+#include <RTClib.h>
+RTC_DS1307 RTC;
+#include <ds3231.h>
+float temperature;
+struct ts t;
+uint8_t arrowUp[8]={ B00100,B01110,B11111,B00100,B00100,B00100,B00100,B00100};
+uint8_t arrowDown[8]    = {0x4,0x4,0x4,04,0x15,0xe,0x4};
+uint8_t arrowRight[8]   = {0x0,0x4,0x2,0x1f,0x2,0x4,0x0};
+uint8_t arrowLeft[8]    = {0x0,0x4,0x8,0x1f,0x8,0x4,0x0};
+uint8_t arrowBack[8]    = {0x1,0x1,0x5,0x9,0x1f,0x8,0x4};
+uint8_t arrowUpDown[8]  = {0x4,0xe,0x15,0x4,0x15,0xe,0x4}; // strzałka gora-dol
+const int ILE=20;      // ilość opcji +1
+int poz=1;             // nr aktualnej pozycji menu
+int popm=1;            // nr poprzedniej pozycji menu
+int pop=-1;            // poprzedni odczyt stanu klawiatury
+int akt=-1;            // aktualny odczyt stanu klawiatury
+char opcje[ILE][20]={  // tablica nazw opcji
+  "                  ",    // jedna pusta linia, dla czyszczenia LCD
+  "1MENU             ",    // 1   // numer opcji
+  " Nowy             ",    // 2
+  " Zapisz           ",    // 3
+  " Exit             ",    // 4
+  "2  EDYCJA         ",    // 5
+  "   Kopiuj         ",    // 6
+  "   Wklej          ",    // 7
+  "   Zaznacz        ",    // 8
+  "3    SZKIC        ",    // 9
+  "     Kompiluj     ",    // 10
+  "     Importuj     ",    // 11
+  "     EEPROM       ",    // 12
+  "     GSM          ",    // 13
+  "4     NARZEDZIA   ",    // 14
+  "      Temperatura ",    // 15
+  "      Odczyt      ",    // 16
+  "      Ustaw       ",    // 17
+  "      Wilgotnosc  ",    // 18
+  "5           CZAS  ",    // 19
+};
+/* Poniżej specyficzna tablica do nawigacji po menu.
+Znaczenie poszczególnych składników:
+index 0 - nr pozycji powyżej - UP (w stosunku do obecnej)
+index 1 - numer pozycji dla RIGHT ( na prawo)
+index 2 - numer pozycji dla DOWN (poniżej)
+index 3 - numer pozycji dla LEFT ( na lewo)
+index 4 - numer pozycji dla OK ( dla -1 skok do funkcji akcjaOK )
+index 5 - poziom menu 0 - rodzic( poziom 0), 1 - dziecko (poziom 1) ,2 - wnuk (poziom2)
+ przykłady:
+ Zapisz (opcja nr 3) ma : UP-2, RIGHT-0, DOWN-4, LEFT-0, OK (-1) , 1 - bo to poziom 1 menu
+ Temperatura (opcja 15) ma: UP-14, RIGHT-0, DOWN-18, LEFT-0, OK-16, 1 bo to poziom 1 menu
+ Ustaw (opcja 17) ma: UP-16, RIGHT-0, DOWN-0, LEFT-0, OK (-1), 2, bo to poziom 2 menu
+*/
+int navi[ILE][6]={       // tablica opcji nawigacji po menu
+{0,0,0,0,0,0},           // dla pustej linii
+{0,5,0,19,2,0},          // MENU GLOWNE
+{1,0,3,0,-1,1},          // Nowy
+{2,0,4,0,-1,1},          // Zapisz
+{3,0,0,0,-1,1},          // Exit
+{0,9,0,1,6,0},           // EDYCJA
+{5,0,7,0,-1,1},          // Kopiuj
+{6,0,8,0,-1,1},          // Wklej
+{7,0,0,0,-1,1},          // Zaznacz
+{0,14,0,5,10,0},         // SZKIC
+{9,0,11,0,-1,1},         // Kompiluj
+{10,0,0,0,12,1},         // Importuj
+{11,0,13,0,-1,2},        // EEPROM
+{12,0,0,0,-1,2},         // GSM
+{0,19,0,9,15,0},         // NARZEDZIA
+{14,0,18,0,16,1},        // Temperatura
+{15,0,17,0,-1,2},        // Odczyt
+{16,0,0,0,-1,2},         // Ustaw
+{15,0,0,0,-1,1},         // Wilgotnosc
+{0,1,0,14,-1,0}          // POMOC
+};
+#include <Keypad.h>
+#include <Keypad_I2C.h>
+#define I2CADDR 0x20 //ADRES KLAWIATURY
+const byte rows = 4;
+const byte cols = 3;
+char keys[rows][cols] = {
+  {'1','2','3'},
+  {'4','5','6'},
+  {'7','8','9'},
+  {'*','0','#'}};
+byte rowPins[rows] = {0, 1, 2, 3};
+byte colPins[cols] = {4, 5, 6};
+Keypad_I2C kpd (makeKeymap(keys), rowPins, colPins, rows, cols, I2CADDR, PCF8574);
+
+//--- odczyt stanu klawiatury ---------------------------------------
+char key = kpd.getKey();
+volatile char klawisz(int analog) {
+   int klawisz = kpd.getKey();delay(30);
+   //if (stan_Analog > 1000) return -1; // dla wartosci poza zakresem
+   if (klawisz =='6')  return 0;  // w prawo 
+   if (klawisz =='2')  return 1;  // do gory
+   if (klawisz =='8')  return 2;  // w dol‚
+   if (klawisz =='4')  return 3;  // w lewo 
+   if (klawisz =='#')  return 4;  // OK
+   return -1;                         // nic nie wcisnieto
+}
+// --- akcja po wcisnięciu klawisza OK ------------------------------
+void akcjaOK() {
+  //Serial.println("  - WYKONANO -  ");
+  lcd.setCursor(0,1);lcd.print("    - WYKONANO -    ");
+  switch(poz) {
+    case 2:break; // obsługa opcji Nowy (funkcja obsługi do napisania)     
+    case 3:break; // obsługa opcji Zapisz (wszędzie poniżej funkcje obsługi)
+    case 4:break; // obsługa opcji Exit
+    case 6:break; // obsługa opcji Kopiuj
+    case 7:break; // obsługa opcji Wklej
+    case 8:break; // obsługa opcji Zaznacz
+    case 10:break;// obsługa opcji Kompiluj     
+    case 12:break;// obsługa opcji Importuj -> EEPROM
+    case 13:break;// obsługa opcji Importuj -> GSM
+    case 16:temp(); break;// obsługa opcji Temperatura -> Odczyt
+    case 17:break;// obsługa opcji Temperatura -> Ustaw
+    case 18:break;// obsługa opcji Czas
+    case 19:czas(); break;// obsługa opcji CZAS       
+    }
+  delay(1000);    // opcjonalne aby zobaczyć komunikat"  - WYKONANO - "
+  ekran();        // powrót do ostatniej opcji
+}
+
+// ----------------------------------------------ekran--------
+void ekran() {
+  
+  if(navi[poz][5]==0) {// jeśli rodzic to wyświetlamy w pierwszej linii LCD
+    lcd.clear();
+    lcd.setCursor(0,0);lcd.print((char)2);lcd.print(opcje[poz]);lcd.print((char)1);
+    }
+  else               // jeśli dziecko lub wnuk to w drugiej linii
+    {
+      lcd.setCursor(0,0);lcd.print(" ");lcd.setCursor(19,0);lcd.print(" ");
+      lcd.setCursor(0,1);lcd.print("                    ");
+      lcd.setCursor(0,1);lcd.print((char)0);lcd.print(opcje[poz]);lcd.print((char)0);
+    }
+  Serial.println(opcje[poz]);  // opcjonalnie także na serialu
+}
+
+// ------------------------------------------------menu-----
+void menu() {
+  czas();
+  akt=klawisz(0);
+  if(akt!=pop)  {  // jeśli naciśnięto coś
+      switch(akt) {
+      case 0: if(navi[poz][1]!=0)poz=navi[poz][1];break;  // klawisz w prawo
+      case 1: if(navi[poz][0]!=0)poz=navi[poz][0];break;  // w gore
+      case 2: if(navi[poz][2]!=0)poz=navi[poz][2];break;  // w dol
+      case 3: if(navi[poz][3]!=0)poz=navi[poz][3];break;  // w lewo
+      case 4: if(navi[poz][4]!=-1)poz=navi[poz][4];else akcjaOK();break;  // OK
+      }
+    if(akt!=-1 && poz!=popm){ekran();popm=poz;} 
+    }
+  pop=akt; // przypisanie aby nie generowac autopowtarzania
+}
+
+// ---------------------------------------temperatura------
+void temp() {
+  temperature = DS3231_get_treg(),DEC; //Sprawdz temperature
+  lcd.setCursor(0,2);
+  lcd.print("Temp: ");
+  lcd.println(temperature);
+  lcd.print("C");
+  }
+// -----------------------------------------czas-----------  
+  void czas() {
+DateTime now = RTC.now();
+  lcd.setCursor(0, 3);
+    if (now.hour() < 10) {
+      lcd.print("0");
+        //Serial.print("0");
+    }
+  lcd.print(now.hour(), DEC);
+  lcd.print(':');
+    if (now.minute() < 10) {
+      lcd.print("0");
+        //Serial.print("0");
+    }
+  lcd.print(now.minute(), DEC);
+  lcd.print(':');
+    if (now.second()<10) {
+      lcd.print("0");
+        //Serial.print("0");
+    }
+  lcd.print(now.second(), DEC);
+  lcd.setCursor(10,3);
+    if (now.day()<10) {
+      lcd.print("0");
+    }
+  lcd.print(now.day(), DEC);
+  lcd.print('-');
+    if (now.month() < 10) {
+    lcd.print("0");
+  }  
+  lcd.print(now.month(), DEC);
+  lcd.print('-');
+  lcd.print(now.year(), DEC);
+  }
+// ----------------------------------------setup-----------
+void setup() {
+  Serial.begin(57600);
+  Wire.begin();
+  lcd.init();
+  lcd.backlight();               // inicjacja LCD
+  
+  lcd.createChar(0,arrowUpDown); // tworzymy nietypowy znak w pamięci LCD
+  lcd.createChar(1,arrowRight);
+  lcd.createChar(2,arrowLeft);
+  lcd.createChar(3,arrowDown);
+  lcd.createChar(4,arrowUp);
+  lcd.createChar(5,arrowBack);
+  
+  kpd.begin(makeKeymap(keys));
+  kpd.setDebounceTime(20);
+  RTC.begin();
+  DS3231_init(DS3231_INTCN);
+
+  ekran();
+}
+// -----------------------------------------------petla-----
+void loop(){
+  menu();
+}

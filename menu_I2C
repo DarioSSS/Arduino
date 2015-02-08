@@ -1,6 +1,7 @@
-//http://majsterkowo.pl/forum/post18866.html?hilit=menu#p18866
-//https://github.com/SauleVire/Kolektorius_v2a/blob/master/meniu/meniu.ino
- /* MOJE Przykładowe MENU: (w sumie 19 opcji w trzech poziomach - rodzic, dziecko, wnuk)
+/*  Menu dostosowane do obslugi przez keypad podlaczony do expandera 8574, wraz z zegarem DS3231 plus EEPROM.
+    Autor i pomysłodawca przerobki wojtekizk.
+    
+    MENU: (w sumie 19 opcji w trzech poziomach - rodzic, dziecko, wnuk)
     PLIK EDYCJA SZKIC NARZEDZIA POMOC
     Nowy Kopiuj Kompiluj Temperatura
     Zapisz Wklej Importuj Odczyt

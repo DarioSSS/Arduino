@@ -1,5 +1,5 @@
 /*  Menu dostosowane do obslugi przez keypad podlaczony do expandera 8574, wraz z zegarem DS3231 plus EEPROM.
-    Autor i pomysłodawca przerobki wojtekizk.
+    Autor i pomysłodawca przerobki wojtekizk /wk@warcaby.lh.pl/.
     
     MENU: (w sumie 19 opcji w trzech poziomach - rodzic, dziecko, wnuk)
     PLIK EDYCJA SZKIC NARZEDZIA POMOC

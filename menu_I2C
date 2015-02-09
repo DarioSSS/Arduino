@@ -1,27 +1,9 @@
-//http://majsterkowo.pl/forum/post18866.html?hilit=menu#p18866
-//https://github.com/SauleVire/Kolektorius_v2a/blob/master/meniu/meniu.ino
- /* MOJE Przykładowe MENU: (w sumie 19 opcji w trzech poziomach - rodzic, dziecko, wnuk)
-    PLIK EDYCJA SZKIC NARZEDZIA POMOC
-    Nowy Kopiuj Kompiluj Temperatura
-    Zapisz Wklej Importuj Odczyt
-    Exit Zaznacz EEPROM Ustaw
-    GSM Wilgotnosc
-
-rodzice (poziom 0) : PLIK, EDYCJA, SZKIC, NARZEDZIA, POMOC
-dzieci  (poziom 1) : Nowy, Zapisz, Exit, Kopiuj, Wklej, Zaznacz, Kompiluj, Importuj, Temperatura, Wilgotnosc
-wnuki   (poziom 2) : EEPROM i GSM dla Importuj oraz Odczyt i Ustaw dla Temperatura
-*/ 
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 LiquidCrystal_I2C lcd(0x27, 20, 4);
 
-//#include <RTClib.h>
-//RTC_DS1307 RTC;
 #include <DS3232RTC.h>
 #include <Time.h>
-//#include <ds3231.h>
-//float temperature;
-//struct ts t;
 
 //unit8_t arrowS[8]={B00000,B00000,B00000,B00000,B00000,B00000,B00000,B00000};
 uint8_t arrowUp[8]={B00100,B01110,B11111,B00100,B00100,B00100,B00100,B00100};

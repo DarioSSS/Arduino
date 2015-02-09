@@ -1,7 +1,6 @@
-/*  Menu dostosowane do obslugi przez keypad podlaczony do expandera 8574, wraz z zegarem DS3231 plus EEPROM.
-    Autor i pomysłodawca przerobki wojtekizk /wk@warcaby.lh.pl/.
-    
-    MENU: (w sumie 19 opcji w trzech poziomach - rodzic, dziecko, wnuk)
+//http://majsterkowo.pl/forum/post18866.html?hilit=menu#p18866
+//https://github.com/SauleVire/Kolektorius_v2a/blob/master/meniu/meniu.ino
+ /* MOJE Przykładowe MENU: (w sumie 19 opcji w trzech poziomach - rodzic, dziecko, wnuk)
     PLIK EDYCJA SZKIC NARZEDZIA POMOC
     Nowy Kopiuj Kompiluj Temperatura
     Zapisz Wklej Importuj Odczyt
@@ -16,12 +15,16 @@ wnuki   (poziom 2) : EEPROM i GSM dla Importuj oraz Odczyt i Ustaw dla Temperatu
 #include <LiquidCrystal_I2C.h>
 LiquidCrystal_I2C lcd(0x27, 20, 4);
 
-#include <RTClib.h>
-RTC_DS1307 RTC;
-#include <ds3231.h>
-float temperature;
-struct ts t;
-uint8_t arrowUp[8]={ B00100,B01110,B11111,B00100,B00100,B00100,B00100,B00100};
+//#include <RTClib.h>
+//RTC_DS1307 RTC;
+#include <DS3232RTC.h>
+#include <Time.h>
+//#include <ds3231.h>
+//float temperature;
+//struct ts t;
+
+//unit8_t arrowS[8]={B00000,B00000,B00000,B00000,B00000,B00000,B00000,B00000};
+uint8_t arrowUp[8]={B00100,B01110,B11111,B00100,B00100,B00100,B00100,B00100};
 uint8_t arrowDown[8]    = {0x4,0x4,0x4,04,0x15,0xe,0x4};
 uint8_t arrowRight[8]   = {0x0,0x4,0x2,0x1f,0x2,0x4,0x0};
 uint8_t arrowLeft[8]    = {0x0,0x4,0x8,0x1f,0x8,0x4,0x0};
@@ -34,25 +37,25 @@ int pop=-1;            // poprzedni odczyt stanu klawiatury
 int akt=-1;            // aktualny odczyt stanu klawiatury
 char opcje[ILE][20]={  // tablica nazw opcji
   "                  ",    // jedna pusta linia, dla czyszczenia LCD
-  "1MENU             ",    // 1   // numer opcji
-  " Nowy             ",    // 2
-  " Zapisz           ",    // 3
-  " Exit             ",    // 4
-  "2  EDYCJA         ",    // 5
-  "   Kopiuj         ",    // 6
-  "   Wklej          ",    // 7
-  "   Zaznacz        ",    // 8
-  "3    SZKIC        ",    // 9
+  " 1 MENU           ",    // 1   // numer opcji
+  "   Nowy           ",    // 2
+  "   Zapisz         ",    // 3
+  "   Exit           ",    // 4
+  "  2 EDYCJA        ",    // 5
+  "    Kopiuj        ",    // 6
+  "    Wklej         ",    // 7
+  "    Zaznacz       ",    // 8
+  "   3 SZKIC        ",    // 9
   "     Kompiluj     ",    // 10
   "     Importuj     ",    // 11
   "     EEPROM       ",    // 12
   "     GSM          ",    // 13
-  "4     NARZEDZIA   ",    // 14
+  "    4 NARZEDZIA   ",    // 14
   "      Temperatura ",    // 15
   "      Odczyt      ",    // 16
   "      Ustaw       ",    // 17
   "      Wilgotnosc  ",    // 18
-  "5           CZAS  ",    // 19
+  "          5 CZAS  ",    // 19
 };
 /* Poniżej specyficzna tablica do nawigacji po menu.
 Znaczenie poszczególnych składników:
@@ -69,7 +72,7 @@ index 5 - poziom menu 0 - rodzic( poziom 0), 1 - dziecko (poziom 1) ,2 - wnuk (p
 */
 int navi[ILE][6]={       // tablica opcji nawigacji po menu
 {0,0,0,0,0,0},           // dla pustej linii
-{0,5,0,19,2,0},          // MENU GLOWNE
+{0,5,0,19,2,0},          // MENU
 {1,0,3,0,-1,1},          // Nowy
 {2,0,4,0,-1,1},          // Zapisz
 {3,0,0,0,-1,1},          // Exit
@@ -89,6 +92,7 @@ int navi[ILE][6]={       // tablica opcji nawigacji po menu
 {15,0,0,0,-1,1},         // Wilgotnosc
 {0,1,0,14,-1,0}          // POMOC
 };
+
 #include <Keypad.h>
 #include <Keypad_I2C.h>
 #define I2CADDR 0x20 //ADRES KLAWIATURY
@@ -143,13 +147,14 @@ void ekran() {
   
   if(navi[poz][5]==0) {// jeśli rodzic to wyświetlamy w pierwszej linii LCD
     lcd.clear();
-    lcd.setCursor(0,0);lcd.print((char)2);lcd.print(opcje[poz]);lcd.print((char)1);
+    lcd.setCursor(0,0);lcd.print((char)4);lcd.print(opcje[poz]);lcd.print((char)6);
     }
   else               // jeśli dziecko lub wnuk to w drugiej linii
     {
       lcd.setCursor(0,0);lcd.print(" ");lcd.setCursor(19,0);lcd.print(" ");
       lcd.setCursor(0,1);lcd.print("                    ");
-      lcd.setCursor(0,1);lcd.print((char)0);lcd.print(opcje[poz]);lcd.print((char)0);
+      lcd.setCursor(0,1);lcd.print((char)8);lcd.print(opcje[poz]);lcd.print((char)8);
+      lcd.setCursor(0,0);lcd.print((char)2);lcd.setCursor(19,0);lcd.print((char)2);
     }
   Serial.println(opcje[poz]);  // opcjonalnie także na serialu
 }
@@ -173,45 +178,50 @@ void menu() {
 
 // ---------------------------------------temperatura------
 void temp() {
-  temperature = DS3231_get_treg(),DEC; //Sprawdz temperature
+  int c = RTC.temperature() / 4.;
+  int f = c * 9. / 5. + 32.;
   lcd.setCursor(0,2);
-  lcd.print("Temp: ");
-  lcd.println(temperature);
-  lcd.print("C");
+  lcd.print("Temp. ");
+  lcd.print(c%100);
+  lcd.print("C ");
+  lcd.print(f);
+  lcd.print("F");
   }
 // -----------------------------------------czas-----------  
+
   void czas() {
-DateTime now = RTC.now();
+//setSyncProvider(RTC.get);
+
   lcd.setCursor(0, 3);
-    if (now.hour() < 10) {
+    if (hour() < 10) {
       lcd.print("0");
         //Serial.print("0");
     }
-  lcd.print(now.hour(), DEC);
+  lcd.print(hour(), DEC);
   lcd.print(':');
-    if (now.minute() < 10) {
+    if (minute() < 10) {
       lcd.print("0");
         //Serial.print("0");
     }
-  lcd.print(now.minute(), DEC);
+  lcd.print(minute(), DEC);
   lcd.print(':');
-    if (now.second()<10) {
+    if (second()<10) {
       lcd.print("0");
         //Serial.print("0");
     }
-  lcd.print(now.second(), DEC);
+  lcd.print(second(), DEC);
   lcd.setCursor(10,3);
-    if (now.day()<10) {
+    if (day()<10) {
       lcd.print("0");
     }
-  lcd.print(now.day(), DEC);
+  lcd.print(day(), DEC);
   lcd.print('-');
-    if (now.month() < 10) {
+    if (month() < 10) {
     lcd.print("0");
   }  
-  lcd.print(now.month(), DEC);
+  lcd.print(month(), DEC);
   lcd.print('-');
-  lcd.print(now.year(), DEC);
+  lcd.print(year(), DEC);
   }
 // ----------------------------------------setup-----------
 void setup() {
@@ -220,17 +230,16 @@ void setup() {
   lcd.init();
   lcd.backlight();               // inicjacja LCD
   
-  lcd.createChar(0,arrowUpDown); // tworzymy nietypowy znak w pamięci LCD
-  lcd.createChar(1,arrowRight);
-  lcd.createChar(2,arrowLeft);
-  lcd.createChar(3,arrowDown);
-  lcd.createChar(4,arrowUp);
-  lcd.createChar(5,arrowBack);
+//  lcd.createChar(0,arrowS);
+  lcd.createChar(1,arrowUpDown); // tworzymy nietypowy znak w pamięci LCD
+  lcd.createChar(2,arrowUp);
+  lcd.createChar(4,arrowLeft);
+  lcd.createChar(6,arrowRight);
+  lcd.createChar(8,arrowDown);
   
   kpd.begin(makeKeymap(keys));
   kpd.setDebounceTime(20);
-  RTC.begin();
-  DS3231_init(DS3231_INTCN);
+  setSyncProvider(RTC.get);
 
   ekran();
 }

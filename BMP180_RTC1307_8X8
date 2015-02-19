@@ -1,11 +1,10 @@
 #include <Wire.h>
 #include <Time.h>
+#include <DS1307RTC.h>
+tmElements_t tm;
 
 #include <Adafruit_BMP085.h>
 Adafruit_BMP085 bmp;
-
-#include <DS1307RTC.h>
-tmElements_t tm;
 
 #include <LedControlDS.h>
 LedControl lc=LedControl(11,13,10,4);
@@ -131,6 +130,7 @@ char pusty[] = "       ";
 void setup() {
   Serial.begin(57600);
   Wire.begin();
+  bmp.begin();
   
     for(int address=0;address<devices;address++) {
     lc.shutdown(address,false);
@@ -187,14 +187,14 @@ void print2digits(int number) {
   }
   Serial.print(number);
 }
-/*
+
 void czas() {//===========================================czas================
   RTC.read(tm);
   lc.clearAll();
-  godz1=tm.Hour()/10; //liczba całkowita dzielenie przez 10 zwraca pierwszą cyfrę godziny.
-  godz2=tm.Hour()%10; //modulo dzielenie przez 10 zwraca 2 cyfre.
-  min1=tm.Minute()/10;
-  min2=tm.Minute()%10;
+  godz1=tm.Hour/10; //liczba całkowita dzielenie przez 10 zwraca pierwszą cyfrę godziny.
+  godz2=tm.Hour%10; //modulo dzielenie przez 10 zwraca 2 cyfre.
+  min1=tm.Minute/10;
+  min2=tm.Minute%10;
 
   lc.displayChar(3,godz1); //Godziny 1 cyfra do lewej skrajnej (#0) LED.
   lc.displayChar(2,godz2); //Godziny 2 cyfry LED do #1
@@ -247,21 +247,22 @@ void czas() {//===========================================czas================
     delay(250);  
 }
 
-void temp() {//===================================temperatura=============
-lc.clearAll();
-  int c = bmp.readTemperature();
-  int f = c * 9. / 5. + 32.;
-temp1=c/10;
-temp2=c%10;
-lc.setRow(1,0,B00000100); //stopien
-lc.setRow(1,1,B00001010);
-lc.setRow(1,2,B00000100);
-lc.setRow(1,4,B01111100); // Celsiusz
-lc.setRow(1,5,B10000010);
-lc.setRow(1,6,B10000010);
-lc.setRow(1,7,B10000010);
-lc.setRow(0,0,B01000100);
-
+void temp() {   //===================================temperatura=============
+  lc.clearAll();
+  int c = (bmp.readTemperature());
+  Serial.print (c);
+  temp1=c/10;
+  temp2=c%10;
+  lc.setRow(1,0,B00000100); //stopien
+  lc.setRow(1,1,B00001010);
+  lc.setRow(1,2,B00000100);
+  lc.setRow(1,4,B01111100); // Celsiusz
+  lc.setRow(1,5,B10000010);
+  lc.setRow(1,6,B10000010);
+  lc.setRow(1,7,B10000010);
+  lc.setRow(0,0,B01000100);
+  
+  //===================================temperatura=============
   //lc.setColumn(2,6,B00000011);
 //lc.clearDisplay(3);
 lc.displayChar(3,temp1);
@@ -270,12 +271,14 @@ lc.displayChar(2,temp2);
 //lc.clearDisplay(0);
 //lc.writeString(0,"C");
 }
+
 //========================================data===========
-void data() {
+void data(){
+  RTC.read(tm);
   lc.clearAll();
-  int dzien = day();
-  int miesiac = month();
-  int rok = year();
+  int dzien = (tm.Day);
+  int miesiac = (tm.Month);
+  int rok = (tmYearToCalendar(tm.Year));
   
   dz1 = dzien/10;
   dz2 = dzien%10;
@@ -284,10 +287,10 @@ void data() {
    
    lc.setLed(2,7,0,true);
 
-  rok1 = year()/1000;
-  rok2 = (year()-(rok1 * 1000))/100;
-  rok3 = (year()-(rok1 * 1000)-(rok2 * 100))/10;
-  rok4 = year()%10;
+  rok1 = (tmYearToCalendar(tm.Year))/1000;
+  rok2 = ((tmYearToCalendar(tm.Year))-(rok1 * 1000))/100;
+  rok3 = ((tmYearToCalendar(tm.Year))-(rok1 * 1000)-(rok2 * 100))/10;
+  rok4 = (tmYearToCalendar(tm.Year))%10;
   
   lc.displayChar(3,dz1);
   lc.displayChar(2,dz2);
@@ -304,7 +307,6 @@ void data() {
   
 }
 
-*/
 void zyczenia() {
   
   //if miesiac=9 && dzien=27
@@ -361,19 +363,19 @@ void loop() {
    printStringWithShift(godzina, 20);
    printStringWithShift(pusty, 20);
   
-  //czas();
+  czas();
   lc.clearAll();
    printStringWithShift(temperatura, 20);
    printStringWithShift(pusty, 20);
 
-  //temp();
+  temp();
   delay(2000);
   
   lc.clearAll();
    printStringWithShift(dzisiaj, 20);
    printStringWithShift(pusty, 20);
   
-  //data();
+  data();
   delay(3000);
   
   

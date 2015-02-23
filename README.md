@@ -1,6 +1,7 @@
 # Arduino
 i rozne inne szkice...
-Tu beda archiwa roznych szkicow. 
+Tu beda archiwa roznych szkicow.
+
 Obecnie:
 
 DS1307_4matrix_BMP180

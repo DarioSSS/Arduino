@@ -1,0 +1,100 @@
+// USB2
+// 1501 2:00
+
+const int ledc = 4; // czerwona dioda - awaria polaczenia
+const int ledz = 5; // zielona X joy
+const int ledn = 6; // niebieska y joy
+
+
+unsigned long poprzMillis = 0;        //opozniacz pomiaru temp i swiatla
+const long sprawdz_temp = 3000;       //opoznienie pomiaru o sec
+
+unsigned long poprzMillisX = 0;
+const long pokaz_x = 1000;
+
+#include <SPI.h>
+#include <nRF24L01.h>
+#include <RF24.h>
+RF24 radio(8,7);
+const uint64_t pipes[2] = { 0xF0F0F0F0E1LL, 0xF0F0F0F0D3LL };
+
+typedef struct
+{
+  int X;
+  int Y; 
+}
+joy;
+
+joy BAZA;
+
+void setup()
+{
+  Serial.begin(9600);
+  pinMode(ledc, OUTPUT);
+  pinMode(ledz, OUTPUT);
+  pinMode(ledn, OUTPUT);
+  
+  radio.begin();
+  radio.setAutoAck(1);
+  radio.enableAckPayload();
+  radio.setDataRate(RF24_250KBPS);
+  radio.setPALevel(RF24_PA_MAX);
+  radio.setChannel(70);
+  radio.enableDynamicPayloads();
+  radio.setRetries(15,15);
+  radio.setCRCLength(RF24_CRC_16);
+  radio.printDetails();
+  radio.startListening();
+
+  radio.openReadingPipe(1,pipes[0]);
+}
+//-------------------------------------------------------------------
+void roleta()
+{
+
+  
+  unsigned long started_waiting_at = millis();  //porownaj oczekiwanie do czasu rzeczyw.
+  bool timeout = false;     // przekroczenie czasu polaczenia ustaw na falsz
+  
+  while (!radio.available() && !timeout)      //jesli radio niedostepne i przekroczony czas polaczenia
+    if (millis() - started_waiting_at > 250 ) //jesli czas rzeczyw. - oczekiwanie > 100 ms
+
+    timeout = true;       // przekroczenie czasu polaczenia ustaw na prawda
+
+  if (timeout)      // jesli system czeka na polaczenie
+  {
+    Serial.println("Blad, utracono kontakt z BAZA.");   //wyswietl komunikat
+    digitalWrite(ledc, HIGH); // zapal LED czerwony - brak polaczenia
+  }
+  else
+   {
+    digitalWrite(ledc, LOW);              //zgas LED czerwony
+//  
+  radio.read(&BAZA, sizeof(BAZA));  //jezeli jest polaczenie     
+   }
+
+  // ==================pokaz dane X odebrane z JOY BAZA ===============
+  Serial.print("Joy Y=");
+  Serial.println(BAZA.Y);
+  if ((BAZA.Y) > 48) digitalWrite(ledz, HIGH); else digitalWrite(ledz, LOW);
+  if ((BAZA.Y) < 48) digitalWrite(ledn, HIGH); else digitalWrite(ledn, LOW);   
+}
+//--------------------------------------------------------------------------------
+
+void loop() //================== L OO P ==================
+{
+  roleta();
+
+  unsigned long aktMillisX = millis();
+  if (aktMillisX - poprzMillisX >= pokaz_x)
+  {
+    poprzMillisX = aktMillisX;
+    Serial.println( "_______________________________");
+  }  
+
+  unsigned long aktMillis = millis();
+  if (aktMillis - poprzMillis >= sprawdz_temp)
+  {
+    poprzMillis = aktMillis;
+  }
+}

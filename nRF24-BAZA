@@ -1,0 +1,108 @@
+// USB2
+// 1401 5:45
+//BTserial - przeszkadza !
+
+#include <SoftwareSerial.h>
+SoftwareSerial BTserial( 2, 4); // RX | TX
+String readString;
+
+const int ledc = 5; // czerwona dioda - awaria polaczenia
+const int ledn = 6; // zielona X joy
+const int ledz = 9; // niebieska y joy
+
+#include <SPI.h>
+#include "nRF24L01.h"
+#include "RF24.h"
+RF24 radio(8,7);
+const uint64_t pipes[3] = { 0xF0F0F0F0E1, 0xF0F0F0F0E2, 0xF0F0F0F0E3 };
+
+typedef struct
+{ int X;
+  int Y; }joy;
+joy BAZA;
+
+typedef struct
+{ float temp_zew;
+  float swiatlo; }temp_zew_swiatlo;
+temp_zew_swiatlo SENS1;
+
+void setup()
+{
+  radio.begin();
+  radio.setDataRate(RF24_250KBPS);
+  radio.setPALevel(RF24_PA_MAX);
+  radio.setChannel(70);
+  radio.enableDynamicPayloads();
+  radio.setRetries(15,15);
+  radio.setCRCLength(RF24_CRC_16);
+    
+  
+  //radio.openWritingPipe(pipes[2]);
+  
+  
+  radio.startListening();
+  radio.printDetails();
+
+  Serial.begin(9600);
+  pinMode(ledc, OUTPUT);
+  pinMode(ledz, OUTPUT);
+  pinMode(ledn, OUTPUT);     
+  pinMode(A2, INPUT);         // joy Y
+  pinMode(A3, INPUT);         // joy X
+  
+  //BTserial.begin(57600);
+}
+
+void sterowanie() // ===================== M A I N ================
+{
+  BAZA.X = analogRead(A3)/10.3;
+  BAZA.Y = analogRead(A2)/10.3;
+
+  if (radio.available())
+  {
+    radio.openReadingPipe(1,pipes[0]);
+    radio.read(&SENS1, sizeof(SENS1)); // ODBIERZ
+
+    radio.stopListening();
+    radio.openWritingPipe(pipes[1]);
+    radio.write(&BAZA, sizeof(BAZA)); // WYSLIJ
+    radio.startListening();
+  }
+// =================== pokaz dane odebrane =====================
+  Serial.print("Temp zew = ");
+  //Serial.print(SENS1.temp_zew);
+  int T = SENS1.temp_zew;
+  Serial.print(T%100);
+  Serial.print(" | ");
+  Serial.print("Swiatlo = ");
+  Serial.println(SENS1.swiatlo);  
+}
+
+void BT_RX_TX() // =====================B T ======================
+{
+while (BTserial.available())
+  {
+    delay(3);
+    char c = BTserial.read();
+    readString += c;
+  }
+
+  if (readString.length() > 0)
+  {
+//    Serial.println(readString );
+  }
+  if (readString == "P1_ON")
+  {
+//    digitalWrite(LED_PINb, HIGH);
+  }
+  if (readString == "P1_OFF")
+  {
+//    digitalWrite(LED_PINb, LOW);
+  }
+readString = "";  
+}
+
+void loop() //================== L OO P ==================
+{
+  sterowanie();
+}

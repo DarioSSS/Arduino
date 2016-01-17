@@ -1,0 +1,128 @@
+// USB1
+// 1401 5:45
+
+
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#define ONE_WIRE_BUS A1
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
+
+const int ledc = 4; // czerwona dioda - awaria polaczenia
+const int ledz = 5; // zielona X joy
+const int ledn = 6; // niebieska y joy
+
+
+unsigned long poprzMillis = 0;        //opozniacz pomiaru temp i swiatla
+const long sprawdz_temp = 3000;       //opoznienie pomiaru o sec
+
+unsigned long poprzMillisX = 0;
+const long pokaz_x = 1000;
+
+#include <SPI.h>
+#include "nRF24L01.h"
+#include "RF24.h"
+
+RF24 radio(8,7);
+const uint64_t pipes[3] = { 0xF0F0F0F0E1, 0xF0F0F0F0E2, 0xF0F0F0F0E3 };
+
+typedef struct
+{ int X;
+  int Y; }joy;
+joy BAZA;
+
+typedef struct
+{ float temp_zew;
+  float swiatlo; }temp_zew_swiatlo;
+temp_zew_swiatlo SENS1;
+
+void setup()
+{
+  sensors.begin();
+  
+  radio.begin();
+  radio.setDataRate(RF24_250KBPS);
+  radio.setPALevel(RF24_PA_MAX);
+  radio.setChannel(70);
+  radio.enableDynamicPayloads();
+  radio.setRetries(15,15);
+  radio.setCRCLength(RF24_CRC_16);
+  
+  radio.startListening();
+  radio.printDetails();
+
+  Serial.begin(9600);
+  pinMode(ledc, OUTPUT);
+  pinMode(ledz, OUTPUT);
+  pinMode(ledn, OUTPUT);
+  pinMode(A0, INPUT);         // foto
+  pinMode(A1, INPUT);         // temp
+}
+//-------------------------------------------------------------------
+
+void temp_swiatlo() // ===================== M A I N ================
+{
+
+  sensors.requestTemperatures();       // Żądanie pomiaru temperatury za pomocą czujnika DS18B20 (czas wykonania < 1s)
+  SENS1.temp_zew = sensors.getTempCByIndex(0);  // Przypisanie wyniku pomiaru temp do zmiennej T1
+  SENS1.swiatlo = analogRead(A0);         // Przypisanie wyniku pomiaru swiatla do zmiennej T2
+
+  radio.stopListening();
+  radio.openWritingPipe(pipes[0]);
+  radio.write(&SENS1, sizeof(SENS1));
+  
+  radio.startListening();
+
+  unsigned long started_waiting_at = millis();  //porownaj oczekiwanie do czasu rzeczyw.
+  bool timeout = false;     // przekroczenie czasu polaczenia ustaw na 'falsz'
+  
+  while (!radio.available() && !timeout)      //jesli radio niedostepne i przekroczony czas polaczenia
+    
+    if (millis() - started_waiting_at > 200 ) //jesli czas rzeczyw. - oczekiwanie > 100 ms
+    timeout = true;       // przekroczenie czasu polaczenia ustaw na 'prawda'
+
+  if (timeout)      // jesli system czeka na polaczenie
+  {
+    Serial.println("Blad, SENSOR utracil kontakt z BAZA.");   //wyswietl komunikat
+    digitalWrite(ledc, HIGH); // zapal LED czerwony - brak polączenia
+  }
+  else
+  {
+    radio.openReadingPipe(1,pipes[1]);
+    radio.read(&BAZA, sizeof(BAZA));  //jezeli jest polaczenie 
+    digitalWrite(ledc, LOW);              //zgas LED czerwony
+  }
+
+// ==================pokaz dane odebrane z JOY BAZA ===============
+  Serial.print("LOK ");
+  Serial.print(SENS1.temp_zew);
+  Serial.print(" | LOK ");
+  Serial.print(SENS1.swiatlo);
+  Serial.print(" | ");
+  Serial.print("Joy X=");
+  Serial.println(BAZA.X);
+  if ((BAZA.X) > 50) digitalWrite(ledz, HIGH); else digitalWrite(ledz, LOW);
+  if ((BAZA.X) < 40) digitalWrite(ledn, HIGH); else digitalWrite(ledn, LOW);  
+
+//  Serial.print("      Poz. joy Y= ");
+//  Serial.println(BAZA.Y);
+}
+//--------------------------------------------------------------------------------
+
+void loop() //================== L OO P ==================
+{
+  temp_swiatlo();
+
+  unsigned long aktMillisX = millis();
+  if (aktMillisX - poprzMillisX >= pokaz_x)
+  {
+    poprzMillisX = aktMillisX;
+    Serial.println( "_______________________________");
+  }  
+
+  unsigned long aktMillis = millis();
+  if (aktMillis - poprzMillis >= sprawdz_temp)
+  {
+    poprzMillis = aktMillis;
+  }
+}

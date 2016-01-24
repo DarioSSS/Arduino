@@ -16,3 +16,6 @@ To projekt na Arduino Mega, do którego podłączone są po I2C:
 - zegar RTC 3231
 - ekran LCD 20x4 z expanderem PCF8574
 a wszystko to sterowane przez menu textowe.
+
+Sterowanie roletami
+przez nRF24, silnikami NEMA17, ekranem Nextion, BT.

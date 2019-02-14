@@ -1,6 +1,6 @@
 # Arduino
 i rozne inne szkice...
-Tu beda archiwa roznych szkicow.
+Archiwa roznych szkicow.
 
 Obecnie:
 
